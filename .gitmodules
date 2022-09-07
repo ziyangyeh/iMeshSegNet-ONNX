@@ -1,0 +1,3 @@
+[submodule "iMeshSegNet"]
+	path = iMeshSegNet
+	url = git@github.com:ziyangyeh/iMeshSegNet.git
