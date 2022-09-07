@@ -21,6 +21,17 @@ int main(){
 
     auto label_num = tl->label_num;
 
+    int* result = &labels[0];
+
+    std::ofstream myfile ("example.txt");
+    if (myfile.is_open())
+    {
+        for(int count = 0; count < labels.size(); count ++){
+            myfile << result[count] << "\n" ;
+        }
+        myfile.close();
+    }
+
     return 0;
 }
 
@@ -30,12 +41,12 @@ int main(){
     std::cout<<labels[1]<<std::endl;
     std::cout<<labels[2]<<std::endl;
     std::cout<<labels[3]<<std::endl;
-    int* result = &label[0];
+    int* result = &labels[0];
 
     std::ofstream myfile ("example.txt");
     if (myfile.is_open())
     {
-        for(int count = 0; count < label.size(); count ++){
+        for(int count = 0; count < labels.size(); count ++){
             myfile << result[count] << "\n" ;
         }
         myfile.close();
