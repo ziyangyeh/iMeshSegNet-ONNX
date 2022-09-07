@@ -1,12 +1,12 @@
 #include "infer.h"
 
 torch::Tensor EigenMatrixToTorchTensor(Eigen::MatrixXd e){
-    auto t = torch::rand({e.cols(),e.rows()});
+    auto t = torch::rand({e.cols(),e.rows()}, torch::TensorOptions().requires_grad(false));
     float* data = t.data_ptr<float>();
 
     Eigen::Map<Eigen::MatrixXf> ef(data,t.size(1),t.size(0));
     ef = e.cast<float>();
-    t.requires_grad_(false);
+    // t.requires_grad_(false);
     return t.transpose(0,1);
 }
 
@@ -84,14 +84,15 @@ MeshWithFeature getTensors(std::shared_ptr<open3d::geometry::TriangleMesh> origi
     auto X_T = EigenMatrixToTorchTensor(barycenters);
 
     auto D_T = torch::cdist(X_T, X_T);
+    D_T.requires_grad_(false);
 
     // Eigen::Map<MatrixXf_rm> D(D_T.data_ptr<float>(), D_T.size(0), D_T.size(1));
 
     auto D_T_a = D_T.accessor<float,2>();
 
     auto abc = std::chrono::high_resolution_clock::now();
-    auto A_S = torch::zeros({X.rows(), X.rows()});
-    auto A_L = torch::zeros({X.rows(), X.rows()});
+    auto A_S = torch::zeros({X.rows(), X.rows()}, torch::TensorOptions().requires_grad(false));
+    auto A_L = torch::zeros({X.rows(), X.rows()}, torch::TensorOptions().requires_grad(false));
     auto A_S_a = A_S.accessor<float,2>();
     auto A_L_a = A_L.accessor<float,2>();
 
@@ -104,14 +105,14 @@ MeshWithFeature getTensors(std::shared_ptr<open3d::geometry::TriangleMesh> origi
         }
     }
 
-    auto A_S_col_sum = torch::zeros({A_S_a.size(1),1});
+    auto A_S_col_sum = torch::zeros({A_S_a.size(1),1}, torch::TensorOptions().requires_grad(false));
     auto A_S_cs_a = A_S_col_sum.accessor<float, 2>();
     #pragma omp parallel for
     for(int i=0; i<A_S_a.size(1); i++){
         A_S_col_sum[i] = A_S.index({"...", i}).sum();
     }
 
-    auto A_L_col_sum = torch::zeros({A_L_a.size(1),1});
+    auto A_L_col_sum = torch::zeros({A_L_a.size(1),1}, torch::TensorOptions().requires_grad(false));
     auto A_L_cs_a = A_L_col_sum.accessor<float, 2>();
     #pragma omp parallel for
     for(int i=0; i<A_L_a.size(1); i++){
@@ -141,7 +142,7 @@ torch::Tensor do_inference(int batch_size, int points_num, MeshWithFeature meshw
     context->setBindingDimensions(1, nvinfer1::Dims3(batch_size, points_num, points_num));
     context->setBindingDimensions(2, nvinfer1::Dims3(batch_size, points_num, points_num));
 
-    auto output = torch::zeros({batch_size, points_num, 17}).ravel();
+    auto output = torch::zeros({batch_size, points_num, 17}, torch::TensorOptions().requires_grad(false)).ravel();
 
     const int inputIndex = engine->getBindingIndex("input");
     const int asIndex = engine->getBindingIndex("a_s");
@@ -176,5 +177,5 @@ torch::Tensor do_inference(int batch_size, int points_num, MeshWithFeature meshw
     cudaMemcpyAsync(output_f, buffers[3], output.numel()*sizeof(float), cudaMemcpyDeviceToHost, stream);
     cudaStreamSynchronize(stream);
 
-    return torch::from_blob(output_f, {batch_size, points_num, 17});
+    return torch::from_blob(output_f, {batch_size, points_num, 17}, torch::TensorOptions().requires_grad(false));
 }
