@@ -13,33 +13,27 @@ int main(){
     std::string mesh_path = "/home/ziyang/Desktop/iMeshSegNet-ONNX/mesh/input/arch_upper_1.ply";
     std::string model_path = "/home/ziyang/Desktop/iMeshSegNet-ONNX/onnx/model_sim.onnx";
 
-    std::vector<int> labels;
-
-    auto mesh = open3d::io::CreateMeshFromFile(mesh_path.c_str());
-
     auto tl = new TeethLabeler(model_path);
 
-    auto start = std::chrono::system_clock::now();
+    std::string input_mesh_path;
 
-    tl->do_infer(mesh, labels);
-
-    auto label_num = tl->label_num;
-
-    auto end = std::chrono::system_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
-    std::cout <<  "Spent " << double(duration.count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den << " seconds." << std::endl;
-
-    int* result = &labels[0];
-
-    std::ofstream myfile ("example.txt");
-    if (myfile.is_open())
+    while(std::cin>>input_mesh_path)
     {
-        for(int count = 0; count < labels.size(); count ++){
-            myfile << result[count] << "\n" ;
-        }
-        myfile.close();
-    }
+        // cudaDeviceReset();
+        std::vector<int> labels;
 
+        auto mesh = open3d::io::CreateMeshFromFile(input_mesh_path.c_str());
+
+        auto start = std::chrono::system_clock::now();
+
+        tl->do_infer(mesh, labels);
+
+        auto label_num = tl->label_num;
+
+        auto end = std::chrono::system_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+        std::cout <<  "Spent " << double(duration.count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den << " seconds." << std::endl;
+    }
     return 0;
 }
 

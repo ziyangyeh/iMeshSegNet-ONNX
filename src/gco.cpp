@@ -1,73 +1,72 @@
 #include "gco.h"
 
-std::vector<int> cut_with_graph(torch::Tensor out_tmp, MeshWithFeature mesh){
+std::vector<int> cut_with_graph(torch::Tensor out_tmp, std::shared_ptr<MeshWithFeature> mesh){
     auto batch_size = 1;
     auto round_factor = 100;
 
-    auto ota = out_tmp.accessor<float,3>();
-    auto ota_thresh = 1.0e-6;
+    std::vector<float> otv(out_tmp.data_ptr<float>(), out_tmp.data_ptr<float>()+out_tmp.numel());
+    float thresh = 1.0e-6;
+    
     #pragma omp parallel for
-    for(int b = 0; b < batch_size; b++){
-        for(int i = 0; i < ota.size(1); i++) {
-            for(int j = 0; j < ota.size(2); j++) {
-                if(ota[0][i][j]<ota_thresh){ota[0][i][j]=ota_thresh;}
-            }
-        }
+    for(auto& item : otv){
+        if(item<thresh){item=thresh;}
     }
-    auto unaries = (torch::log10(out_tmp) * -round_factor).reshape({-1, 17}).to(torch::kInt32);
-    auto pairwise = (1 - torch::eye(17)).to(torch::kInt32);;
 
-    auto cell_ids = torch::zeros({(signed long)mesh.size, 3}, torch::TensorOptions().dtype(torch::kInt32));
+    auto threshed = torch::from_blob(otv.data(), (int)otv.size());
+
+    auto unaries = (torch::log10(threshed) * -round_factor).reshape({-1, 17}).to(torch::kInt32).requires_grad_(false);
+    auto pairwise = (1 - torch::eye(17)).to(torch::kInt32).requires_grad_(false);
+
+    auto cell_ids = torch::zeros({(signed long)mesh->size, 3}, torch::TensorOptions().dtype(torch::kInt32).requires_grad(false));
     Eigen::Map<MatrixXi_rm> et(cell_ids.data_ptr<int>(),cell_ids.size(0),cell_ids.size(1));
-    et = Eigen::Map<MatrixXi_rm>(reinterpret_cast<int*>(mesh.sim_tri.data()),mesh.size,3);
+    et = Eigen::Map<MatrixXi_rm>(reinterpret_cast<int*>(mesh->sim_tri.data()),mesh->size,3);
 
     auto lambda_c = 30;
-    auto edges = torch::empty({1, 3});
+    auto edges = torch::empty({1, 3}, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false));
 
-    auto normals_t = EigenMatrixToTorchTensor(mesh.mesh_normals);
-    auto barycenters_t = EigenMatrixToTorchTensor(mesh.barycenters);
+    auto normals_t = EigenMatrixToTorchTensor(mesh->mesh_normals);
+    auto barycenters_t = EigenMatrixToTorchTensor(mesh->barycenters);
 
     auto pi = 3.1415926;
 
     #pragma omp parallel for ordered
     for(int i = 0; i < cell_ids.size(0); i++){
-        auto nei = torch::sum(torch::isin(cell_ids, cell_ids.index({i})), 1);
-        auto nei_id = torch::where(nei==2)[0].to(torch::kInt32);
+        auto nei = torch::sum(torch::isin(cell_ids, cell_ids.index({i})), 1).requires_grad_(false);
+        auto nei_id = torch::where(nei==2)[0].to(torch::kInt32).requires_grad_(false);
         auto nei_id_ptr = nei_id.data_ptr<int>();
         for(int j = 0; j < nei_id.size(0); j++){
             #pragma omp ordered
             if(i < nei_id_ptr[j]){
-                auto cos_theta = torch::dot(normals_t[i], normals_t[nei_id_ptr[j]])/torch::norm(normals_t[i])/torch::norm(normals_t[nei_id_ptr[j]]);
+                auto cos_theta = torch::dot(normals_t[i], normals_t[nei_id_ptr[j]])/torch::norm(normals_t[i])/torch::norm(normals_t[nei_id_ptr[j]]).requires_grad_(false);
                 if(*cos_theta.data_ptr<float>() >= 1.0){*cos_theta.data_ptr<float>() = 0.9999;}
-                auto theta = torch::arccos(cos_theta);
+                auto theta = torch::arccos(cos_theta).requires_grad_(false);
                 auto phi = torch::norm(barycenters_t[i] - barycenters_t[nei_id_ptr[j]]);
                 if(*theta.data_ptr<float>() > pi/2.0){
-                    float tmp_t[3] = {(float)i, (float)nei_id_ptr[j], -*(torch::log10(theta/pi)*phi).data_ptr<float>()};
-                    auto tharray = torch::zeros({1,3},torch::kFloat32); //or use kF64
+                    float tmp_t[3] = {(float)i, (float)nei_id_ptr[j], -*(torch::log10(theta/pi)*phi).requires_grad_(false).data_ptr<float>()};
+                    auto tharray = torch::zeros({1,3}, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false)); //or use kF64
                     std::memcpy(tharray.data_ptr(),tmp_t,sizeof(double)*tharray.numel());
                     tharray.reshape({1,3});
                     at::Tensor tensors[2] = {edges, tharray};
-                    edges = torch::concat(tensors, 0);
+                    edges = torch::concat(tensors, 0).requires_grad_(false);
                 }
                 else{
-                    auto beta = 1 + torch::norm(torch::dot(normals_t[i], normals_t[nei_id_ptr[j]]));
-                    float tmp_t[3] = {(float)i, (float)nei_id_ptr[j], -*(beta*torch::log10(theta/pi)*phi).data_ptr<float>()};
-                    auto tharray = torch::zeros({1,3},torch::kFloat32); //or use kF64
+                    auto beta = 1 + torch::norm(torch::dot(normals_t[i], normals_t[nei_id_ptr[j]])).requires_grad_(false);
+                    float tmp_t[3] = {(float)i, (float)nei_id_ptr[j], -*(beta*torch::log10(theta/pi)*phi).requires_grad_(false).data_ptr<float>()};
+                    auto tharray = torch::zeros({1,3}, torch::TensorOptions().dtype(torch::kFloat32).requires_grad(false)); //or use kF64
                     std::memcpy(tharray.data_ptr(),tmp_t,sizeof(double)*tharray.numel());
                     tharray.reshape({1,3});
                     at::Tensor tensors[2] = {edges, tharray};
-                    edges = torch::concat(tensors, 0);
+                    edges = torch::concat(tensors, 0).requires_grad_(false);
                 }
             }
         }
     }
-    edges = edges.index({torch::indexing::Slice({1, torch::indexing::None})});
-    auto e_a = edges.accessor<float, 2>();
+    edges = edges.index({torch::indexing::Slice({1, torch::indexing::None})}).to(torch::kInt32);
+    auto e_a = edges.accessor<int, 2>();
     #pragma omp parallel for
     for(int i = 0; i < e_a.size(0); i++){e_a[i][2] *= lambda_c*round_factor;}
-    edges = edges.to(torch::kI32);
 
-    GCoptimizationGeneralGraph* gc = new GCoptimizationGeneralGraph(unaries.size(0), pairwise.size(0));
+    std::unique_ptr<GCoptimizationGeneralGraph> gc{new GCoptimizationGeneralGraph(unaries.size(0), pairwise.size(0))};
     #pragma omp parallel for
     for(int i=0; i<edges.size(0); i++){
         if(edges[i].size(0) == 3){gc->setNeighbors(*edges[i][0].data_ptr<int>(), *edges[i][1].data_ptr<int>(), *edges[i][2].data_ptr<int>());}
@@ -76,13 +75,13 @@ std::vector<int> cut_with_graph(torch::Tensor out_tmp, MeshWithFeature mesh){
     gc->setDataCost(unaries.data_ptr<int>());
     gc->setSmoothCost(pairwise.data_ptr<int>());
     gc->expansion(5);
-    int result[unaries.size(0)];
+    std::vector<int> result(unaries.size(0));
     #pragma omp parallel for
     for(int i = 0; i<unaries.size(0); i++){result[i]=gc->whatLabel(i);}
 
-    auto final_t = torch::from_blob(result, {unaries.size(0)}, torch::TensorOptions().dtype(torch::kInt32));
+    auto final_t = torch::from_blob(result.data(), {unaries.size(0)}, torch::TensorOptions().dtype(torch::kInt32)).requires_grad_(false);
 
-    auto origin_mesh = mesh.mesh;
+    auto origin_mesh = mesh->mesh;
     Eigen::MatrixXd origin_barycenters = Eigen::MatrixXd::Zero((int)origin_mesh->triangles_.size(), 3);
     #pragma omp parallel for
     for(auto &iter : origin_mesh->triangles_) {
@@ -106,7 +105,7 @@ std::vector<int> cut_with_graph(torch::Tensor out_tmp, MeshWithFeature mesh){
         origin_barycenters.row(index) = sub_cent;
     }
 
-    std::vector<Eigen::Vector3d> src_barycenters(mesh.barycenters.rowwise().begin(), mesh.barycenters.rowwise().end());
+    std::vector<Eigen::Vector3d> src_barycenters(mesh->barycenters.rowwise().begin(), mesh->barycenters.rowwise().end());
     auto src_pcd = new open3d::geometry::PointCloud();
     src_pcd->points_ = src_barycenters;
     auto kdtree = new open3d::geometry::KDTreeFlann(*src_pcd);

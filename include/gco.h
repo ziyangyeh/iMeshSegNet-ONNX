@@ -9,6 +9,6 @@
 typedef Eigen::Matrix<float, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> MatrixXf_rm;
 typedef Eigen::Matrix<int, Eigen::Dynamic, Eigen::Dynamic, Eigen::RowMajor> MatrixXi_rm;
 
-std::vector<int> cut_with_graph(torch::Tensor, MeshWithFeature);
+std::vector<int> cut_with_graph(torch::Tensor, std::shared_ptr<MeshWithFeature>);
 
 #endif

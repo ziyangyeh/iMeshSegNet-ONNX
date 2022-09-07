@@ -1,11 +1,16 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.18)
 
-project(iMeshSegNet-ONNX LANGUAGES C CXX)
+project(iMeshSegNet-ONNX LANGUAGES C CXX CUDA)
 
-set(CMAKE_CXX_STANDARD 14)
+if(CUDA_ENABLE)
+    enable_language(CUDA)
+endif()
+
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CUDA_STANDARD 11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
 set(Open3D_DIR /home/ziyang/Open3D/lib/cmake/Open3D/)
-set(Torch_DIR /home/ziyang/libtorch/share/cmake/Torch/)
+set(Torch_DIR /home/ziyang/libtorch-cpu/share/cmake/Torch/)
 
 find_package(Torch REQUIRED)
 find_package(Open3D REQUIRED)
@@ -30,8 +35,8 @@ include_directories(
   ${CUDA_INCLUDE_DIRS}
 )
 
-add_library(TeethLabeler SHARED ${SRC_DIR} ${GCO_DIR})
+cuda_add_library(TeethLabeler SHARED ${SRC_DIR} ${GCO_DIR})
 target_link_libraries(TeethLabeler "${TORCH_LIBRARIES}" Open3D::Open3D OpenMP::OpenMP_CXX nvinfer nvinfer_plugin nvparsers nvonnxparser)
 
-add_executable(Test main.cpp ${SRC_DIR} ${GCO_DIR})
+cuda_add_executable(Test main.cpp ${SRC_DIR} ${GCO_DIR})
 target_link_libraries(Test "${TORCH_LIBRARIES}" Open3D::Open3D OpenMP::OpenMP_CXX nvinfer nvinfer_plugin nvparsers nvonnxparser)

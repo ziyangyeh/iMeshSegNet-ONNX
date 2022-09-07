@@ -20,7 +20,7 @@ struct MeshWithFeature{
 };
 
 torch::Tensor EigenMatrixToTorchTensor(Eigen::MatrixXd);
-MeshWithFeature getTensors(std::shared_ptr<open3d::geometry::TriangleMesh>);
-torch::Tensor do_inference(int, int, MeshWithFeature, nvinfer1::IExecutionContext*, nvinfer1::ICudaEngine*, cudaStream_t);
+std::shared_ptr<MeshWithFeature> getTensors(std::shared_ptr<open3d::geometry::TriangleMesh>);
+torch::Tensor do_inference(int, int, std::shared_ptr<MeshWithFeature>, std::shared_ptr<nvinfer1::IExecutionContext>, std::shared_ptr<nvinfer1::ICudaEngine>, cudaStream_t);
 
 #endif
