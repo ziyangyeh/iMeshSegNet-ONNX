@@ -34,8 +34,6 @@ void TeethLabeler::do_infer(std::shared_ptr<open3d::geometry::TriangleMesh> mesh
     label_num = *torch::from_blob(label.data(), label.size(), torch::TensorOptions().dtype(torch::kInt32).requires_grad(false)).max().data_ptr<int>();
 
     labels.insert(labels.begin(), label.begin(), label.end());
-
-    
 }
 
 TeethLabeler::~TeethLabeler()

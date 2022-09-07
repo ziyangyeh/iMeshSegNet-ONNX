@@ -7,6 +7,8 @@
 #include <fstream>
 #include <sstream>
 
+#include <chrono>   
+
 int main(){
     std::string mesh_path = "/home/ziyang/Desktop/iMeshSegNet-ONNX/mesh/input/arch_upper_1.ply";
     std::string model_path = "/home/ziyang/Desktop/iMeshSegNet-ONNX/onnx/model_sim.onnx";
@@ -17,9 +19,15 @@ int main(){
 
     auto tl = new TeethLabeler(model_path);
 
+    auto start = std::chrono::system_clock::now();
+
     tl->do_infer(mesh, labels);
 
     auto label_num = tl->label_num;
+
+    auto end = std::chrono::system_clock::now();
+    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
+    std::cout <<  "Spent " << double(duration.count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den << " seconds." << std::endl;
 
     int* result = &labels[0];
 

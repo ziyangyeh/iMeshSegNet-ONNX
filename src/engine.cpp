@@ -36,13 +36,13 @@ nvinfer1::ICudaEngine* InferEngine::create_engine()
         nvinfer1::IOptimizationProfile* profile = builder->createOptimizationProfile();
 
         profile->setDimensions(network->getInput(0)->getName(), nvinfer1::OptProfileSelector::kMIN, nvinfer1::Dims3(1,15,1000));
-        profile->setDimensions(network->getInput(0)->getName(), nvinfer1::OptProfileSelector::kOPT, nvinfer1::Dims3(2,15,5000));
+        profile->setDimensions(network->getInput(0)->getName(), nvinfer1::OptProfileSelector::kOPT, nvinfer1::Dims3(1,15,10000));
         profile->setDimensions(network->getInput(0)->getName(), nvinfer1::OptProfileSelector::kMAX, nvinfer1::Dims3(2,15,10000));
         profile->setDimensions(network->getInput(1)->getName(), nvinfer1::OptProfileSelector::kMIN, nvinfer1::Dims3(1,1000,1000));
-        profile->setDimensions(network->getInput(1)->getName(), nvinfer1::OptProfileSelector::kOPT, nvinfer1::Dims3(2,5000,5000));
+        profile->setDimensions(network->getInput(1)->getName(), nvinfer1::OptProfileSelector::kOPT, nvinfer1::Dims3(1,10000,10000));
         profile->setDimensions(network->getInput(1)->getName(), nvinfer1::OptProfileSelector::kMAX, nvinfer1::Dims3(2,10000,10000));
         profile->setDimensions(network->getInput(2)->getName(), nvinfer1::OptProfileSelector::kMIN, nvinfer1::Dims3(1,1000,1000));
-        profile->setDimensions(network->getInput(2)->getName(), nvinfer1::OptProfileSelector::kOPT, nvinfer1::Dims3(2,5000,5000));
+        profile->setDimensions(network->getInput(2)->getName(), nvinfer1::OptProfileSelector::kOPT, nvinfer1::Dims3(1,10000,10000));
         profile->setDimensions(network->getInput(2)->getName(), nvinfer1::OptProfileSelector::kMAX, nvinfer1::Dims3(2,10000,10000));
 
         nvinfer1::IBuilderConfig* config = builder->createBuilderConfig();
