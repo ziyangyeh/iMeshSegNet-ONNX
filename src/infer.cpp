@@ -83,47 +83,28 @@ std::shared_ptr<MeshWithFeature> getTensors(std::shared_ptr<open3d::geometry::Tr
 
     auto X_T = EigenMatrixToTorchTensor(barycenters);
 
-    auto D_T = torch::cdist(X_T, X_T).requires_grad_(false);
-
     // Eigen::Map<MatrixXf_rm> D(D_T.data_ptr<float>(), D_T.size(0), D_T.size(1));
 
-    auto D_T_a = D_T.accessor<float,2>();
+
 
     auto abc = std::chrono::high_resolution_clock::now();
-    auto A_S = torch::zeros({X.rows(), X.rows()}, torch::TensorOptions().requires_grad(false));
-    auto A_L = torch::zeros({X.rows(), X.rows()}, torch::TensorOptions().requires_grad(false));
-    auto A_S_a = A_S.accessor<float,2>();
-    auto A_L_a = A_L.accessor<float,2>();
 
+    auto D_T = torch::cdist(X_T, X_T).requires_grad_(false);
+    auto A_S = (D_T<0.1).clone();
+    auto A_L = (D_T<0.2).clone();
 
-    #pragma omp parallel for
-    for (int i=0; i<D_T_a.size(0); i++){
-        for (int j=0; j<D_T_a.size(1); j++){
-            if (D_T_a[i][j] < 0.1){A_S_a[i][j]=1.0;}
-            if (D_T_a[i][j] < 0.2){A_L_a[i][j]=1.0;}
-        }
-    }
+    auto A_S_sum = A_S.sum(1, true);
+    auto A_L_sum = A_L.sum(1, true);
 
-    auto A_S_col_sum = torch::zeros({A_S_a.size(1),1}, torch::TensorOptions().requires_grad(false));
-    auto A_S_cs_a = A_S_col_sum.accessor<float, 2>();
-    #pragma omp parallel for
-    for(int i=0; i<A_S_a.size(1); i++){
-        A_S_col_sum[i] = A_S.index({"...", i}).sum();
-    }
+    A_S/=A_S_sum.repeat({1, N});
+    A_L/=A_L_sum.repeat({1, N});
 
-    auto A_L_col_sum = torch::zeros({A_L_a.size(1),1}, torch::TensorOptions().requires_grad(false));
-    auto A_L_cs_a = A_L_col_sum.accessor<float, 2>();
-    #pragma omp parallel for
-    for(int i=0; i<A_L_a.size(1); i++){
-        A_L_col_sum[i] = A_L.index({"...", i}).sum();
-    }
-
-    auto A_S_dot = torch::matmul(A_S_col_sum, torch::ones({1, A_S_a.size(1)}));
-    auto A_L_dot = torch::matmul(A_L_col_sum, torch::ones({1, A_L_a.size(1)}));
+    A_S = A_S.transpose(0,1);
+    A_L = A_L.transpose(0,1);
 
     std::vector<at::Tensor> output_tensor;
-    output_tensor.push_back((A_S / A_S_dot).ravel());
-    output_tensor.push_back((A_L / A_L_dot).ravel());
+    output_tensor.push_back((A_S).ravel());
+    output_tensor.push_back((A_L).ravel());
     output_tensor.push_back(EigenMatrixToTorchTensor(X).transpose(0,1).ravel());
 
     std::shared_ptr<MeshWithFeature> mwf{new MeshWithFeature};
