@@ -14,8 +14,8 @@ std::vector<int> cut_with_graph(torch::Tensor out_tmp, std::shared_ptr<MeshWithF
 
     auto threshed = torch::from_blob(otv.data(), (int)otv.size());
 
-    auto unaries = (torch::log10(threshed) * -round_factor).reshape({-1, 17}).to(torch::kInt32).requires_grad_(false);
-    auto pairwise = (1 - torch::eye(17)).to(torch::kInt32).requires_grad_(false);
+    auto unaries = (torch::log10(threshed) * -round_factor).reshape({-1, 15}).to(torch::kInt32).requires_grad_(false);
+    auto pairwise = (1 - torch::eye(15)).to(torch::kInt32).requires_grad_(false);
 
     auto cell_ids = torch::zeros({(signed long)mesh->size, 3}, torch::TensorOptions().dtype(torch::kInt32).requires_grad(false));
     Eigen::Map<MatrixXi_rm> et(cell_ids.data_ptr<int>(),cell_ids.size(0),cell_ids.size(1));
@@ -65,7 +65,7 @@ std::vector<int> cut_with_graph(torch::Tensor out_tmp, std::shared_ptr<MeshWithF
     auto e_a = edges.accessor<int, 2>();
     #pragma omp parallel for
     for(int i = 0; i < e_a.size(0); i++){e_a[i][2] *= lambda_c*round_factor;}
-
+    edges = edges.to(torch::kInt32);
     std::unique_ptr<GCoptimizationGeneralGraph> gc{new GCoptimizationGeneralGraph(unaries.size(0), pairwise.size(0))};
     #pragma omp parallel for
     for(int i=0; i<edges.size(0); i++){
@@ -82,6 +82,7 @@ std::vector<int> cut_with_graph(torch::Tensor out_tmp, std::shared_ptr<MeshWithF
     auto final_t = torch::from_blob(result.data(), {unaries.size(0)}, torch::TensorOptions().dtype(torch::kInt32)).requires_grad_(false);
 
     auto origin_mesh = mesh->mesh;
+    // origin_mesh->Translate(-origin_mesh->GetCenter());
     Eigen::MatrixXd origin_barycenters = Eigen::MatrixXd::Zero((int)origin_mesh->triangles_.size(), 3);
     #pragma omp parallel for
     for(auto &iter : origin_mesh->triangles_) {
@@ -113,6 +114,7 @@ std::vector<int> cut_with_graph(torch::Tensor out_tmp, std::shared_ptr<MeshWithF
     std::vector<Eigen::Vector3d> center_cells_copy(origin_barycenters.rowwise().begin(), origin_barycenters.rowwise().end());
 
     std::vector<int> ori_res(center_cells_copy.size());
+
     int num = 1;
     #pragma omp parallel for
     for(int i=0; i<center_cells_copy.size();i++){

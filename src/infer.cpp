@@ -11,7 +11,7 @@ torch::Tensor EigenMatrixToTorchTensor(Eigen::MatrixXd e){
 }
 
 std::shared_ptr<MeshWithFeature> getTensors(std::shared_ptr<open3d::geometry::TriangleMesh> origin_mesh){ 
-    // mesh->Translate(-mesh->GetCenter());
+    origin_mesh->Translate(-origin_mesh->GetCenter());
     auto mesh = origin_mesh->SimplifyQuadricDecimation(10000,std::numeric_limits<double>::infinity(),1.0);
     mesh->ComputeTriangleNormals(true);
 
@@ -136,10 +136,10 @@ std::shared_ptr<MeshWithFeature> getTensors(std::shared_ptr<open3d::geometry::Tr
     return mwf;
 }
 
-torch::Tensor do_inference(int batch_size, int points_num, std::shared_ptr<MeshWithFeature> meshwithfeature, std::shared_ptr<nvinfer1::IExecutionContext> context, std::shared_ptr<nvinfer1::ICudaEngine> engine, cudaStream_t stream){
-    context->setBindingDimensions(0, nvinfer1::Dims3(batch_size, 15, points_num));
-    context->setBindingDimensions(1, nvinfer1::Dims3(batch_size, points_num, points_num));
-    context->setBindingDimensions(2, nvinfer1::Dims3(batch_size, points_num, points_num));
+torch::Tensor do_inference(int batch_size, int points_num, std::shared_ptr<MeshWithFeature> meshwithfeature, std::shared_ptr<nvinfer1::IExecutionContext> context, std::shared_ptr<nvinfer1::ICudaEngine> engine){
+    context->setInputShape("input", nvinfer1::Dims3(batch_size, 15, points_num));
+    context->setInputShape("a_s", nvinfer1::Dims3(batch_size, points_num, points_num));
+    context->setInputShape("a_l", nvinfer1::Dims3(batch_size, points_num, points_num));
 
     auto output = torch::zeros({batch_size, points_num, 17}, torch::TensorOptions().requires_grad(false)).ravel();
 
@@ -168,17 +168,16 @@ torch::Tensor do_inference(int batch_size, int points_num, std::shared_ptr<MeshW
     std::vector<float> output_v(output.data_ptr<float>(), output.data_ptr<float>()+output.numel());
     float* output_f = &output_v[0];
 
-    cudaMemcpyAsync(buffers[inputIndex], input_f, X.numel()*sizeof(float), cudaMemcpyHostToDevice, stream);
-    cudaMemcpyAsync(buffers[asIndex], a_s_f, A_S.numel()*sizeof(float), cudaMemcpyHostToDevice, stream);
-    cudaMemcpyAsync(buffers[alIndex], a_l_f, A_L.numel()*sizeof(float), cudaMemcpyHostToDevice, stream);
-    context->enqueueV2(buffers, stream, nullptr);
-    cudaMemcpyAsync(output_f, buffers[outputIndex], output.numel()*sizeof(float), cudaMemcpyDeviceToHost, stream);
-    cudaStreamSynchronize(stream);
+    cudaMemcpy(buffers[inputIndex], input_f, X.numel()*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(buffers[asIndex], a_s_f, A_S.numel()*sizeof(float), cudaMemcpyHostToDevice);
+    cudaMemcpy(buffers[alIndex], a_l_f, A_L.numel()*sizeof(float), cudaMemcpyHostToDevice);
+    context->executeV2(buffers);
+    cudaMemcpy(output_f, buffers[outputIndex], output.numel()*sizeof(float), cudaMemcpyDeviceToHost);
 
     cudaFree(buffers[inputIndex]);
     cudaFree(buffers[asIndex]);
     cudaFree(buffers[alIndex]);
     cudaFree(buffers[outputIndex]);
 
-    return torch::from_blob(output_f, {batch_size, points_num, 17}, torch::TensorOptions().requires_grad(false)).squeeze({0});
+    return torch::from_blob(output_f, {batch_size, points_num, 15}, torch::TensorOptions().requires_grad(false)).squeeze({0});
 }

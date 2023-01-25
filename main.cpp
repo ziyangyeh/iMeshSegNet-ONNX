@@ -10,8 +10,7 @@
 #include <chrono>   
 
 int main(){
-    std::string mesh_path = "/home/ziyang/Desktop/iMeshSegNet-ONNX/mesh/input/arch_upper_1.ply";
-    std::string model_path = "/home/ziyang/Desktop/iMeshSegNet-ONNX/onnx/model_sim.onnx";
+    std::string model_path = "/home/ziyang/Desktop/iMeshSegNet-ONNX/MeshSegNet-sim.onnx";
 
     auto tl = new TeethLabeler(model_path);
 
@@ -33,6 +32,16 @@ int main(){
         auto end = std::chrono::system_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(end - start);
         std::cout <<  "Spent " << double(duration.count()) * std::chrono::microseconds::period::num / std::chrono::microseconds::period::den << " seconds." << std::endl;
+        
+        int* result = &labels[0];
+        std::ofstream myfile ("example.txt");
+        if (myfile.is_open())
+        {
+            for(int count = 0; count < labels.size(); count ++){
+                myfile << result[count] << "\n" ;
+            }
+            myfile.close();
+        }
     }
     return 0;
 }

@@ -7,4 +7,11 @@ onnx
 mesh
 
 *.zip
-*.vtp
+*.vt
+*.ply
+*.onnx
+*.trt
+
+
+libtorch*
+open3d*

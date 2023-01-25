@@ -1,16 +1,13 @@
 cmake_minimum_required(VERSION 3.18)
 
 project(iMeshSegNet-ONNX LANGUAGES C CXX CUDA)
-
-if(CUDA_ENABLE)
-    enable_language(CUDA)
-endif()
+enable_language(CUDA)
 
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CUDA_STANDARD 11)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${TORCH_CXX_FLAGS}")
-set(Open3D_DIR /home/ziyang/Open3D/lib/cmake/Open3D/)
-set(Torch_DIR /home/ziyang/libtorch-cpu/share/cmake/Torch/)
+set(Open3D_DIR open3d/lib/cmake/Open3D/)
+set(Torch_DIR libtorch/share/cmake/Torch/)
 
 find_package(Torch REQUIRED)
 find_package(Open3D REQUIRED)

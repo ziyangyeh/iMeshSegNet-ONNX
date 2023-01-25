@@ -25,7 +25,6 @@ private:
 public:
     std::shared_ptr<nvinfer1::ICudaEngine> engine;
     std::shared_ptr<nvinfer1::IExecutionContext> context;
-    cudaStream_t stream;
     InferEngine(Logger, uint32_t, std::string);
     ~InferEngine();
 };

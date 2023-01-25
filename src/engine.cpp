@@ -35,7 +35,6 @@ InferEngine::InferEngine(Logger tmp_logger, uint32_t tmp_flag, std::string tmp_p
 {
     flag = tmp_flag;
     path = tmp_path;
-    stream = nullptr;
 
     std::unique_ptr<nvinfer1::IBuilder> builder{nvinfer1::createInferBuilder(logger)};
 
@@ -79,7 +78,7 @@ InferEngine::InferEngine(Logger tmp_logger, uint32_t tmp_flag, std::string tmp_p
 
         std::cout<<"TRT file is created."<<std::endl;
 
-        std::unique_ptr<nvinfer1::IRuntime> runtime{nvinfer1::createInferRuntime(logger)};
+        auto runtime{nvinfer1::createInferRuntime(logger)};
         engine.reset(runtime->deserializeCudaEngine(serializedModel->data(), serializedModel->size()));
         context.reset(engine->createExecutionContext()); 
     }
@@ -94,7 +93,7 @@ InferEngine::InferEngine(Logger tmp_logger, uint32_t tmp_flag, std::string tmp_p
         // int engine_data_length = 0;
         // std::unique_ptr<char[]> plan = load_engine_file(new_str, &engine_data_length);
 
-        std::unique_ptr<nvinfer1::IRuntime> runtime{nvinfer1::createInferRuntime(logger)};
+        auto runtime{nvinfer1::createInferRuntime(logger)};
         // engine.reset(runtime->deserializeCudaEngine(plan.get(), engine_data_length));
         engine.reset(runtime->deserializeCudaEngine(plan.data(), plan.size()));
         context.reset(engine->createExecutionContext());
