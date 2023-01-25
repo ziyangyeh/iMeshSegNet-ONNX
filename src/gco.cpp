@@ -61,11 +61,11 @@ std::vector<int> cut_with_graph(torch::Tensor out_tmp, std::shared_ptr<MeshWithF
             }
         }
     }
-    edges = edges.index({torch::indexing::Slice({1, torch::indexing::None})}).to(torch::kInt32);
+    edges = edges.index({torch::indexing::Slice({1, torch::indexing::None})});
     auto e_a = edges.accessor<int, 2>();
     #pragma omp parallel for
     for(int i = 0; i < e_a.size(0); i++){e_a[i][2] *= lambda_c*round_factor;}
-
+    edges = edges.to(torch::kInt32);
     std::unique_ptr<GCoptimizationGeneralGraph> gc{new GCoptimizationGeneralGraph(unaries.size(0), pairwise.size(0))};
     #pragma omp parallel for
     for(int i=0; i<edges.size(0); i++){
